@@ -1,5 +1,5 @@
 import { APIException, EXCEPTIONS } from './exceptions.js'
-import { generateCookie, unixTimestamp, sample } from './utils.js'
+import { generateCookie, unixTimestamp, sample, tokenSplit } from './utils.js'
 
 // 模型名称
 const MODEL_NAME = 'moonshot-v1'
