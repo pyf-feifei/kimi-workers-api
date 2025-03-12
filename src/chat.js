@@ -70,32 +70,39 @@ function checkResult(result, refreshToken) {
 
 // 请求access_token
 async function requestToken(refreshToken, env) {
-  console.info(`Refresh token: ${refreshToken}`)
-
   const tokenResult = await fetch(`${env.BASE_URL}/api/auth/token/refresh`, {
-    method: 'GET',
     headers: {
-      Authorization: `Bearer ${refreshToken}`,
+      Authorization: refreshToken,
       ...FAKE_HEADERS,
     },
   })
 
   const tokenData = await tokenResult.json()
+
+  // JWT token 直接返回
+  if (refreshToken.startsWith('eyJ')) {
+    return {
+      userId: tokenData?.abstract_user_id || 'default_user',
+      accessToken: refreshToken,
+      refreshToken,
+      refreshTime: unixTimestamp() + 3600,
+    }
+  }
+
+  // 常规 token 处理
   const { access_token, refresh_token } = checkResult(
     { status: tokenResult.status, data: tokenData },
     refreshToken
   )
 
-  const userResult = await fetch(`${env.BASE_URL}/api/user`, {
-    method: 'GET',
+  const { data: userData } = await fetch(`${env.BASE_URL}/api/user`, {
     headers: {
-      Authorization: `Bearer ${access_token}`,
+      Authorization: access_token,
       ...FAKE_HEADERS,
     },
-  })
+  }).then((res) => res.json())
 
-  const userData = await userResult.json()
-  if (!userData.id) {
+  if (!userData?.id) {
     throw new APIException(EXCEPTIONS.API_REQUEST_FAILED, '获取用户信息失败')
   }
 
@@ -103,7 +110,7 @@ async function requestToken(refreshToken, env) {
     userId: userData.id,
     accessToken: access_token,
     refreshToken: refresh_token,
-    refreshTime: unixTimestamp() + 300, // 5分钟过期
+    refreshTime: unixTimestamp() + 300,
   }
 }
 
@@ -198,7 +205,7 @@ async function createCompletion(model, messages, refreshToken, convId, env) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authData.accessToken}`,
+          Authorization: authData.accessToken,
           'X-Traffic-Id': authData.userId,
           ...FAKE_HEADERS,
         },
@@ -311,7 +318,7 @@ async function createCompletionStream(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authData.accessToken}`,
+          Authorization: authData.accessToken,
           'X-Traffic-Id': authData.userId,
           ...FAKE_HEADERS,
         },

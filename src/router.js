@@ -49,8 +49,8 @@ async function handleChatCompletions(request, env) {
       use_search = false,
     } = body
 
-    // 使用自己实现的sample函数随机选择token
-    const token = sample(tokenSplit(authorization))
+    // 直接使用完整的authorization header值
+    const token = authorization
 
     const modelName = use_search ? 'moonshot-v1-vision' : model
 
