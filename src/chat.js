@@ -70,6 +70,18 @@ function checkResult(result, refreshToken) {
 
 // 请求access_token
 async function requestToken(refreshToken, env) {
+  // 如果是JWT token,直接解析并返回
+  if (refreshToken.startsWith('Bearer eyJ')) {
+    // 移除Bearer前缀
+    const token = refreshToken.replace('Bearer ', '')
+    return {
+      userId: 'default_user', // JWT中的用户ID在此场景下不重要
+      accessToken: token,
+      refreshToken: token,
+      refreshTime: unixTimestamp() + 3600,
+    }
+  }
+
   const tokenResult = await fetch(`${env.BASE_URL}/api/auth/token/refresh`, {
     headers: {
       Authorization: refreshToken,
@@ -78,16 +90,6 @@ async function requestToken(refreshToken, env) {
   })
 
   const tokenData = await tokenResult.json()
-
-  // JWT token 直接返回
-  if (refreshToken.startsWith('eyJ')) {
-    return {
-      userId: tokenData?.abstract_user_id || 'default_user',
-      accessToken: refreshToken,
-      refreshToken,
-      refreshTime: unixTimestamp() + 3600,
-    }
-  }
 
   // 常规 token 处理
   const { access_token, refresh_token } = checkResult(
