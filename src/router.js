@@ -30,53 +30,57 @@ async function handleChatCompletions(request, env) {
       )
     }
 
-    // 验证conversation_id格式
-    if (body.conversation_id && typeof body.conversation_id !== 'string') {
+    // 验证conversation_id
+    if (
+      body.conversation_id !== undefined &&
+      typeof body.conversation_id !== 'string'
+    ) {
       throw new APIException(
         EXCEPTIONS.API_REQUEST_PARAMS_INVALID,
         'conversation_id必须为字符串'
       )
     }
 
-    // 使用解构和默认值简化参数提取
     const {
-      model = 'moonshot-v1', // 默认使用moonshot-v1模型
+      model = 'moonshot-v1',
       conversation_id: convId,
       messages,
       stream = false,
       use_search = false,
     } = body
 
-    // 使用条件表达式简化模型选择
-    const modelName = use_search ? 'moonshot-v1-vision' : model
-
-    // 从Authorization头获取refresh_token并随机选择一个
+    // 使用自己实现的sample函数随机选择token
     const token = sample(tokenSplit(authorization))
 
-    // 使用条件运算符简化条件分支
-    return stream
-      ? new Response(
-          await chat.createCompletionStream(
-            modelName,
-            messages,
-            token,
-            convId,
-            env
-          ),
-          {
-            headers: {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-              Connection: 'keep-alive',
-            },
-          }
-        )
-      : new Response(
-          JSON.stringify(
-            await chat.createCompletion(modelName, messages, token, convId, env)
-          ),
-          { headers: { 'Content-Type': 'application/json' } }
-        )
+    const modelName = use_search ? 'moonshot-v1-vision' : model
+
+    if (stream) {
+      const streamResponse = await chat.createCompletionStream(
+        modelName,
+        messages,
+        token,
+        convId,
+        env
+      )
+      return new Response(streamResponse, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      })
+    }
+
+    const result = await chat.createCompletion(
+      modelName,
+      messages,
+      token,
+      convId,
+      env
+    )
+    return new Response(JSON.stringify(result), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (error) {
     console.error('处理聊天补全请求时出错:', error)
     return handleException(error)

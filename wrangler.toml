@@ -1,6 +1,6 @@
 name = "kimi-workers-api"
 main = "src/index.js"
-compatibility_date = "2023-12-01"
+compatibility_date = "2024-01-01"
 
 [vars]
 BASE_URL = "https://kimi.moonshot.cn"

@@ -35,12 +35,24 @@ const FAKE_HEADERS = {
 
 // 检查API结果
 function checkResult(result, refreshToken) {
-  // 检查状态码
+  // 添加422错误处理
+  if (result.status === 422) {
+    console.error('API Validation Error:', result.data)
+    throw new APIException(
+      EXCEPTIONS.API_REQUEST_PARAMS_INVALID,
+      `参数验证失败: ${JSON.stringify(result.data)}`
+    )
+  }
+
   if (result.status !== 200) {
-    console.error(`API request failed: ${result.status} ${result.statusText}`)
+    console.error('API Response:', {
+      status: result.status,
+      statusText: result.statusText,
+      data: result.data,
+    })
     throw new APIException(
       EXCEPTIONS.API_REQUEST_FAILED,
-      `请求失败: ${result.status} ${result.statusText}`
+      `请求失败: ${result.status} ${result.statusText || '请求参数错误'}`
     )
   }
 
@@ -102,6 +114,7 @@ async function createConversation(model, name, refreshToken, authData, env) {
   const response = await fetch(`${env.BASE_URL}/api/chat`, {
     method: 'POST',
     headers: {
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
       'X-Traffic-Id': userId,
       ...FAKE_HEADERS,
@@ -115,8 +128,8 @@ async function createConversation(model, name, refreshToken, authData, env) {
   })
 
   const data = await response.json()
-  checkResult({ status: response.status, data }, refreshToken)
-  return data.id
+  const result = checkResult({ status: response.status, data }, refreshToken)
+  return result.id
 }
 
 // 移除会话
@@ -178,19 +191,29 @@ async function createCompletion(model, messages, refreshToken, convId, env) {
       prompt += `${role === 'user' ? 'user' : 'assistant'}: ${content}\n`
     }
 
-    // 发送请求
+    // 修改请求体格式
     const response = await fetch(
       `${env.BASE_URL}/api/chat/${conversationId}/completion`,
       {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${authData.accessToken}`,
           'X-Traffic-Id': authData.userId,
           ...FAKE_HEADERS,
         },
         body: JSON.stringify({
-          prompt,
-          search: model.includes('vision'),
+          kimiplus_id: /^[0-9a-z]{20}$/.test(model) ? model : 'moonshot-v1',
+          messages: [
+            {
+              role: 'user',
+              content: prompt.trim(),
+            },
+          ],
+          refs: [],
+          refs_file: [],
+          use_search: model.includes('vision'),
+          extend: { sidebar: true },
         }),
       }
     )
@@ -281,19 +304,29 @@ async function createCompletionStream(
       prompt += `${role === 'user' ? 'user' : 'assistant'}: ${content}\n`
     }
 
-    // 发送流式请求
+    // 修改请求体格式
     const response = await fetch(
       `${env.BASE_URL}/api/chat/${conversationId}/completion/stream`,
       {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${authData.accessToken}`,
           'X-Traffic-Id': authData.userId,
           ...FAKE_HEADERS,
         },
         body: JSON.stringify({
-          prompt,
-          search: model.includes('vision'),
+          kimiplus_id: /^[0-9a-z]{20}$/.test(model) ? model : 'moonshot-v1',
+          messages: [
+            {
+              role: 'user',
+              content: prompt.trim(),
+            },
+          ],
+          refs: [],
+          refs_file: [],
+          use_search: model.includes('vision'),
+          extend: { sidebar: true },
         }),
       }
     )
