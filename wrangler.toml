@@ -1,6 +1,52 @@
-name = "kimi-workers-api"
-main = "src/index.js"
-compatibility_date = "2024-01-01"
+name = "kimi-free-worker"
+main = "src/index.ts"
+compatibility_date = "2024-05-20"
+node_compat = true  # 启用Node.js兼容模式
 
-[vars]
-BASE_URL = "https://kimi.moonshot.cn"
+kv_namespaces = [
+  { binding = "SESSION_STORE", id = "xxxxxx" },  # 会话存储
+  { binding = "TOKEN_CACHE", id = "xxxxxx" },    # 令牌缓存
+  { binding = "RATE_LIMITER", id = "xxxxxx" }    # 新增速率限制存储
+]
+
+d1_databases = [
+  { binding = "D1_STORE", database_name = "kimi-db", database_id = "xxxxxx" }  # SQL数据库配置
+]
+
+[env.dev]
+vars = {
+  API_MODE = "development",
+  CRYPTO_SECRET = "@crypto_dev_secret",  # 开发环境加密密钥
+  KIMI_BASE_URL = "https://api.moonshot.cn",
+  MAX_RPM = "100"  # 开发环境速率限制
+}
+
+[env.production]
+vars = {
+  API_MODE = "production",
+  CRYPTO_SECRET = "@crypto_prod_secret",  # 生产环境加密密钥
+  KIMI_BASE_URL = "https://api.moonshot.cn",
+  MAX_RPM = "1000"  # 生产环境速率限制
+}
+
+[logpush]
+enabled = true  # 启用日志推送
+
+[analytics_engine_datasets]
+# 配置分析数据集
+kimi_analytics = { dataset = "kimi_events" }
+
+[dev]
+port = 8787  # 本地开发端口
+ip = "localhost"
+
+[[rules]]
+# 路由匹配规则
+type = "redirect"
+from = "/*"
+to = "/v1/chat/completions"
+
+[tail]
+# 日志跟踪配置
+format = "json"
+sampling_rate = 1.0
