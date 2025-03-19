@@ -8,6 +8,8 @@
     "deploy": "wrangler deploy",
     "auto-deploy": "node deploy.js",
     "dev": "wrangler dev",
+    "dev:local": "wrangler dev --local",
+    "preview": "wrangler dev --remote",
     "login": "wrangler login",
     "predeploy": "node -e \"console.log('检查环境变量...');if(!process.env.CLOUDFLARE_API_TOKEN && process.env.CI) console.warn('警告: 在 CI 环境中未设置 CLOUDFLARE_API_TOKEN 环境变量')\""
   },
