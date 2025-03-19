@@ -7,6 +7,6 @@
     "auto-deploy": "node deploy.js"
   },
   "devDependencies": {
-    "wrangler": "^4.22.3" 
+    "wrangler": "4.22.1"
   }
 }
