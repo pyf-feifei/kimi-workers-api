@@ -1,13 +1,13 @@
 name = "kimi-cloudflare-worker-js"
 main = "src/index.js"
-compatibility_date = "2024-05-28"  // 更新兼容日期
+compatibility_date = "2024-05-28"  # 更新兼容日期
 
 kv_namespaces = [
   { binding = "TOKEN_CACHE", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
 ]
 
 [dev]
-port = 8787  // 新增开发配置
+port = 8787  # 新增开发配置
 ip = "localhost"
 
 [[rules]]
