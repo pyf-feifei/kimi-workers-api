@@ -10,8 +10,13 @@ kv_namespaces = [
 port = 8787  # 新增开发配置
 ip = "localhost"
 
-[[rules]]
-# 路由匹配规则
+# 修复 rules 配置
+[[routes]]
+pattern = "/*"
+script = "src/index.js"
+
+# 移除不支持的 tail 配置
+# 如果需要日志配置，可以使用 Cloudflare Dashboard 进行设置
 type = "redirect"
 from = "/*"
 to = "/v1/chat/completions"
