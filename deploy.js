@@ -9,7 +9,7 @@ try {
   // 1. 创建 KV 命名空间
   console.log('正在创建 KV 命名空间...');
   // 修改 KV 创建命令（适用于 Wrangler v4）
-  const result = execSync('npx wrangler kv create --name TOKEN_CACHE').toString();
+  const result = execSync('npx wrangler kv:namespace create TOKEN_CACHE').toString();
   
   // 修改正则表达式匹配新输出格式
   const idMatch = result.match(/id\s*=\s*"([a-f0-9-]+)"/);
