@@ -5,33 +5,105 @@ import path from 'path';
 // 配置文件路径
 const wranglerPath = path.join(process.cwd(), 'wrangler.toml');
 
+// 检查是否已登录 Cloudflare
+function checkCloudflareLogin() {
+  try {
+    const whoamiOutput = execSync('npx wrangler whoami', { stdio: ['pipe', 'pipe', 'pipe'] }).toString();
+    console.log('Cloudflare 账户已登录:', whoamiOutput.trim());
+    return true;
+  } catch (error) {
+    console.log('您尚未登录 Cloudflare 账户，请先登录...');
+    try {
+      execSync('npx wrangler login', { stdio: 'inherit' });
+      return true;
+    } catch (loginError) {
+      console.error('登录失败:', loginError.message);
+      return false;
+    }
+  }
+}
+
+// 检查 KV 命名空间是否已存在
+function checkExistingKVNamespace() {
+  try {
+    const kvListOutput = execSync('npx wrangler kv namespace list').toString();
+    const existingNamespace = kvListOutput.includes('TOKEN_CACHE');
+    
+    if (existingNamespace) {
+      // 尝试提取已存在的 KV ID
+      const matches = kvListOutput.match(/TOKEN_CACHE[^\n]*id:\s*([a-f0-9-]+)/);
+      if (matches && matches[1]) {
+        console.log(`KV 命名空间 TOKEN_CACHE 已存在，ID: ${matches[1]}`);
+        return matches[1];
+      }
+      console.log('KV 命名空间 TOKEN_CACHE 已存在，但无法提取 ID');
+    }
+    return null;
+  } catch (error) {
+    console.log('检查 KV 命名空间列表失败:', error.message);
+    return null;
+  }
+}
+
 try {
-  // 1. 创建 KV 命名空间
-  console.log('正在创建 KV 命名空间...');
-  // 修改 KV 创建命令（适用于 Wrangler v4）
-  const result = execSync('npx wrangler kv namespace create TOKEN_CACHE').toString();
-  
-  // 修改正则表达式匹配新输出格式
-  const idMatch = result.match(/id\s*=\s*"([a-f0-9-]+)"/);
-  if (!idMatch) {
-    throw new Error('无法从输出中提取 KV 命名空间 ID');
+  // 1. 检查 Cloudflare 登录状态
+  if (!checkCloudflareLogin()) {
+    throw new Error('请确保已登录 Cloudflare 账户后再尝试部署');
   }
   
-  const kvId = idMatch[1];
-  console.log(`成功创建 KV 命名空间，ID: ${kvId}`);
+  // 2. 检查 KV 命名空间是否已存在
+  let kvId = checkExistingKVNamespace();
   
-  // 3. 读取 wrangler.toml 文件
+  // 3. 如果不存在，则创建新的 KV 命名空间
+  if (!kvId) {
+    console.log('正在创建 KV 命名空间...');
+    try {
+      const result = execSync('npx wrangler kv namespace create TOKEN_CACHE').toString();
+      
+      // 修改正则表达式匹配新输出格式
+      const idMatch = result.match(/id\s*=\s*"([a-f0-9-]+)"/);
+      if (!idMatch) {
+        throw new Error('无法从输出中提取 KV 命名空间 ID');
+      }
+      
+      kvId = idMatch[1];
+      console.log(`成功创建 KV 命名空间，ID: ${kvId}`);
+    } catch (kvError) {
+      console.error('创建 KV 命名空间失败:', kvError.message);
+      console.log('尝试使用预览环境...');
+      
+      // 尝试创建预览环境的 KV 命名空间
+      try {
+        const result = execSync('npx wrangler kv namespace create TOKEN_CACHE --preview').toString();
+        const idMatch = result.match(/id\s*=\s*"([a-f0-9-]+)"/);
+        if (idMatch) {
+          console.log(`成功创建预览环境 KV 命名空间，ID: ${idMatch[1]}`);
+        }
+      } catch (previewError) {
+        console.log('创建预览环境 KV 命名空间也失败:', previewError.message);
+      }
+      
+      // 继续使用默认 ID
+      console.log('将使用默认 ID 继续部署...');
+    }
+  }
+  
+  // 4. 读取 wrangler.toml 文件
   let wranglerContent = fs.readFileSync(wranglerPath, 'utf8');
   
-  // 4. 替换 KV ID
-  wranglerContent = wranglerContent.replace(
-    /binding\s*=\s*"TOKEN_CACHE"\s*,\s*id\s*=\s*"[^"]*"/,
-    `binding = "TOKEN_CACHE", id = "${kvId}"`
-  );
-  
-  // 5. 写回文件
-  fs.writeFileSync(wranglerPath, wranglerContent);
-  console.log('已更新 wrangler.toml 文件');
+  // 5. 替换 KV ID（如果获取到了有效的 ID）
+  if (kvId) {
+    wranglerContent = wranglerContent.replace(
+      /binding\s*=\s*"TOKEN_CACHE"\s*,\s*id\s*=\s*"[^"]*"/,
+      `binding = "TOKEN_CACHE", id = "${kvId}"`
+    );
+    
+    // 写回文件
+    fs.writeFileSync(wranglerPath, wranglerContent);
+    console.log('已更新 wrangler.toml 文件');
+  } else {
+    console.log('未获取到有效的 KV ID，将使用 wrangler.toml 中的默认配置');
+  }
   
   // 6. 部署 Worker
   console.log('正在部署 Worker...');

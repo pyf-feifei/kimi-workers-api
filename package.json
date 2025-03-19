@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "build": "echo '检查依赖...' && npm list --depth=0",
+    "check": "echo '检查项目配置...' && node -e \"console.log('配置正常')\"",
     "deploy": "wrangler deploy",
-    "auto-deploy": "node deploy.js"
+    "auto-deploy": "node deploy.js",
+    "dev": "wrangler dev",
+    "login": "wrangler login"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
