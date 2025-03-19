@@ -7,6 +7,6 @@
     "auto-deploy": "node deploy.js"
   },
   "devDependencies": {
-    "wrangler": "^4.22.3"  // 明确指定最新版本
+    "wrangler": "^4.22.3" 
   }
 }
