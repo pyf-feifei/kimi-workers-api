@@ -8,10 +8,11 @@ const wranglerPath = path.join(process.cwd(), 'wrangler.toml');
 try {
   // 1. 创建 KV 命名空间
   console.log('正在创建 KV 命名空间...');
-  const result = execSync('npx wrangler kv:namespace create TOKEN_CACHE').toString();
+  // 修改 KV 命名空间创建命令
+  const result = execSync('npx wrangler kv:namespace create TOKEN_CACHE --preview').toString();
   
-  // 2. 从输出中提取 KV ID
-  const idMatch = result.match(/id\s*=\s*"([^"]+)"/);
+  // 修改正则表达式匹配新版本输出格式
+  const idMatch = result.match(/id\s*=\s*"([a-f0-9]{32})"/); 
   if (!idMatch) {
     throw new Error('无法从输出中提取 KV 命名空间 ID');
   }
