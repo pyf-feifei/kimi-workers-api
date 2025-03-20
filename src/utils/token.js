@@ -17,7 +17,7 @@ export async function getAccessToken(refreshToken, env) {
     const response = await fetch(
       'https://kimi.moonshot.cn/api/auth/token/refresh',
       {
-        method: 'GET', // 从POST改为GET方法
+        method: 'GET',
         headers: {
           Authorization: `Bearer ${refreshToken}`,
           Referer: 'https://kimi.moonshot.cn/',
@@ -35,8 +35,8 @@ export async function getAccessToken(refreshToken, env) {
 
     const tokenData = await response.json();
     
-    // 缓存令牌，有效期24小时
-    cache.set(cacheKey, tokenData, 24 * 60 * 60 * 1000);
+    // 缓存令牌，有效期1小时
+    cache.set(cacheKey, tokenData, 60 * 60 * 1000);
     
     return tokenData;
   } catch (error) {
