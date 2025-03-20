@@ -13,15 +13,15 @@ export async function getAccessToken(refreshToken, env) {
   console.log('请求新的访问令牌');
   
   try {
-    // 请求新token
+    // 请求新token - 修改为GET方法
     const response = await fetch(
       'https://kimi.moonshot.cn/api/auth/token/refresh',
       {
-        method: 'POST', // 需要明确指定POST方法
+        method: 'GET', // 从POST改为GET方法
         headers: {
           Authorization: `Bearer ${refreshToken}`,
           Referer: 'https://kimi.moonshot.cn/',
-          'Content-Type': 'application/json', // 必须添加内容类型
+          'Content-Type': 'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
         },
       }
