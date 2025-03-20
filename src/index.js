@@ -4,22 +4,16 @@ import { handleRequest } from './utils/router.js'
 export default {
   async fetch(request, env, ctx) {
     try {
-      // 处理预检请求
-      if (request.method === 'OPTIONS') {
-        return handleCors(request, env.CORS_ORIGINS)
-      }
-
       return await handleRequest(request, env)
     } catch (error) {
+      console.error('处理请求时发生错误:', error)
       return new Response(
-        JSON.stringify({
-          error: error.message || 'Internal Server Error',
-        }),
-        {
+        JSON.stringify({ error: '服务内部错误', detail: error.message }),
+        { 
           status: 500,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json' }
         }
       )
     }
-  },
+  }
 }

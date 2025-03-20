@@ -1,14 +1,9 @@
-name = "kimi-cloudflare-worker-js"
+name = "kimi-workers-api"
 main = "src/index.js"
-compatibility_date = "2024-05-28"  # 更新兼容日期
-
-# 移除 KV 命名空间配置，使用内存缓存
-# kv_namespaces = [
-#   { binding = "TOKEN_CACHE", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
-# ]
+compatibility_date = "2024-05-28"
 
 [dev]
-port = 8787  # 新增开发配置
+port = 8787
 ip = "localhost"
 
 # 正确配置路由

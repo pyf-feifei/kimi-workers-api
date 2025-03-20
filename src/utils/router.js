@@ -2,9 +2,39 @@ import { getAccessToken } from './token.js';
 
 export async function handleRequest(request, env) {
   const url = new URL(request.url)
+  
+  // 处理 OPTIONS 请求，支持 CORS
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400',
+      },
+    })
+  }
 
   if (url.pathname !== '/v1/chat/completions') {
     return notFoundResponse()
+  }
+
+  // 确保支持 POST 方法
+  if (request.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ 
+        error_type: "method.not.allowed", 
+        message: "Method Not Allowed", 
+        detail: "Only POST method is supported" 
+      }),
+      { 
+        status: 405,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Allow': 'POST, OPTIONS'
+        }
+      }
+    )
   }
 
   const refreshToken = getRefreshToken(request)
@@ -14,11 +44,11 @@ export async function handleRequest(request, env) {
 
   try {
     const { accessToken } = await getAccessToken(refreshToken, env)
-    return proxyToKimiAPI(request, accessToken, env.KIMI_BASE_URL)
+    return proxyToKimiAPI(request, accessToken, env.KIMI_BASE_URL || 'https://kimi.moonshot.cn')
   } catch (error) {
     console.error('获取访问令牌失败:', error)
     return new Response(
-      JSON.stringify({ error: '获取访问令牌失败' }),
+      JSON.stringify({ error: '获取访问令牌失败', detail: error.message }),
       { 
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -67,7 +97,7 @@ export async function proxyToKimiAPI(request, accessToken, baseUrl) {
   }
 
   // 发送请求到Kimi API
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const response = await fetch(`${baseUrl}/api/chat/completions`, {
     method: request.method,
     headers: headers,
     body: request.body
