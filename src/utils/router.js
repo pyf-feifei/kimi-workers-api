@@ -1,7 +1,7 @@
 import { getAccessToken } from './token.js';
 
 export async function handleRequest(request, env) {
-  const url = new URL(request.url)
+  const url = new URL(request.url);
   
   // 处理 OPTIONS 请求，支持 CORS
   if (request.method === 'OPTIONS') {
@@ -12,11 +12,12 @@ export async function handleRequest(request, env) {
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Max-Age': '86400',
       },
-    })
+    });
   }
 
-  if (url.pathname !== '/v1/chat/completions') {
-    return notFoundResponse()
+  // 修改：放宽路径匹配条件，支持更多路径格式
+  if (!url.pathname.includes('/v1/chat/completions')) {
+    return notFoundResponse();
   }
 
   // 确保支持 POST 方法
@@ -31,29 +32,33 @@ export async function handleRequest(request, env) {
         status: 405,
         headers: { 
           'Content-Type': 'application/json',
-          'Allow': 'POST, OPTIONS'
+          'Allow': 'POST, OPTIONS',
+          'Access-Control-Allow-Origin': '*' // 添加CORS头
         }
       }
-    )
+    );
   }
 
-  const refreshToken = getRefreshToken(request)
+  const refreshToken = getRefreshToken(request);
   if (!refreshToken) {
-    return unauthorizedResponse()
+    return unauthorizedResponse();
   }
 
   try {
-    const { accessToken } = await getAccessToken(refreshToken, env)
-    return proxyToKimiAPI(request, accessToken, env.KIMI_BASE_URL || 'https://kimi.moonshot.cn')
+    const { accessToken } = await getAccessToken(refreshToken, env);
+    return proxyToKimiAPI(request, accessToken, env.KIMI_BASE_URL || 'https://kimi.moonshot.cn');
   } catch (error) {
-    console.error('获取访问令牌失败:', error)
+    console.error('获取访问令牌失败:', error);
     return new Response(
       JSON.stringify({ error: '获取访问令牌失败', detail: error.message }),
       { 
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*' // 添加CORS头
+        }
       }
-    )
+    );
   }
 }
 
@@ -81,21 +86,43 @@ function unauthorizedResponse() {
 }
 
 // 新增代理转发功能，支持流式响应
+// 修改代理转发功能，增强对 Cloudflare Workers 的兼容性
 export async function proxyToKimiAPI(request, accessToken, baseUrl) {
-  const headers = new Headers(request.headers);
+  // 创建新的请求头，确保不会传递不兼容的头部
+  const headers = new Headers();
+  
+  // 只复制必要的请求头
+  for (const [key, value] of request.headers.entries()) {
+    if (key.toLowerCase() !== 'host' && 
+        key.toLowerCase() !== 'connection' && 
+        key.toLowerCase() !== 'content-length') {
+      headers.set(key, value);
+    }
+  }
+  
   headers.set('Authorization', `Bearer ${accessToken}`);
   headers.set('Referer', 'https://kimi.moonshot.cn/');
+  headers.set('Content-Type', 'application/json');
   
   // 检查是否为流式请求
   let isStreamRequest = false;
+  let requestBody = null;
+  
   try {
     const clonedRequest = request.clone();
-    const requestBody = await clonedRequest.json();
+    requestBody = await clonedRequest.json();
     isStreamRequest = requestBody.stream === true;
   } catch (error) {
     console.error('解析请求体失败:', error);
+    return new Response(
+      JSON.stringify({ error: '解析请求体失败', detail: error.message }),
+      { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
-
+  
   // 修正URL拼接，避免重复的/api
   const apiUrl = baseUrl.endsWith('/api') 
     ? `${baseUrl}/chat/completions` 
@@ -103,11 +130,11 @@ export async function proxyToKimiAPI(request, accessToken, baseUrl) {
   
   console.log('请求Kimi API:', apiUrl);
   
-  // 发送请求到Kimi API
+  // 使用原始请求体重新构建请求
   const response = await fetch(apiUrl, {
-    method: request.method,
+    method: 'POST', // 明确指定POST方法
     headers: headers,
-    body: request.body
+    body: JSON.stringify(requestBody)
   });
 
   // 如果响应不成功，记录详细错误
@@ -130,7 +157,10 @@ export async function proxyToKimiAPI(request, accessToken, baseUrl) {
       }),
       { 
         status: response.status,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*' // 添加CORS头
+        }
       }
     );
   }
@@ -141,6 +171,7 @@ export async function proxyToKimiAPI(request, accessToken, baseUrl) {
     responseHeaders.set('Content-Type', 'text/event-stream');
     responseHeaders.set('Cache-Control', 'no-cache');
     responseHeaders.set('Connection', 'keep-alive');
+    responseHeaders.set('Access-Control-Allow-Origin', '*'); // 添加CORS头
     
     // 创建并返回流式响应
     return new Response(response.body, {
@@ -151,5 +182,12 @@ export async function proxyToKimiAPI(request, accessToken, baseUrl) {
   }
   
   // 非流式请求直接返回
-  return response;
+  const responseHeaders = new Headers(response.headers);
+  responseHeaders.set('Access-Control-Allow-Origin', '*'); // 添加CORS头
+  
+  return new Response(response.body, {
+    headers: responseHeaders,
+    status: response.status,
+    statusText: response.statusText
+  });
 }
