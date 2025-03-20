@@ -119,10 +119,15 @@ async function getKimiAccessToken(refreshToken) {
     return cachedToken.accessToken;
   }
   
-  console.log('请求新的访问令牌');
+  console.log('请求新的访问令牌，token长度:', refreshToken.length);
   
   try {
-    const response = await fetch('https://kimi.moonshot.cn/api/auth/token/refresh', {
+    // 尝试直接使用 refreshToken 作为 accessToken
+    // 在某些情况下，传入的可能已经是 accessToken 而非 refreshToken
+    console.log('尝试直接使用传入的令牌作为访问令牌');
+    
+    // 先尝试验证令牌是否有效
+    const testResponse = await fetch('https://kimi.moonshot.cn/api/chat/models', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${refreshToken}`,
@@ -132,13 +137,63 @@ async function getKimiAccessToken(refreshToken) {
       }
     });
     
+    if (testResponse.ok) {
+      console.log('传入的令牌有效，直接使用');
+      // 缓存令牌，有效期30分钟
+      cache.set(cacheKey, { accessToken: refreshToken }, 30 * 60 * 1000);
+      return refreshToken;
+    }
+    
+    console.log('传入的令牌不能直接使用，尝试刷新');
+    
+    // 尝试刷新令牌
+    const response = await fetch('https://kimi.moonshot.cn/api/auth/token/refresh', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${refreshToken}`,
+        'Referer': 'https://kimi.moonshot.cn/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Origin': 'https://kimi.moonshot.cn'
+      }
+    });
+    
+    // 记录响应状态和头信息，帮助调试
+    console.log('刷新令牌响应状态:', response.status, response.statusText);
+    console.log('响应头:', JSON.stringify([...response.headers.entries()]));
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`刷新令牌失败: ${response.status}`, errorText);
+      
+      // 如果是 401 错误，可能是令牌格式问题
+      if (response.status === 401) {
+        console.log('尝试使用不同的令牌格式');
+        // 尝试使用不同的令牌格式（去掉可能的前缀）
+        const altToken = refreshToken.includes('.') ? refreshToken.split('.').pop() : refreshToken;
+        
+        const altResponse = await fetch('https://kimi.moonshot.cn/api/auth/token/refresh', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${altToken}`,
+            'Referer': 'https://kimi.moonshot.cn/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (altResponse.ok) {
+          const altTokenData = await altResponse.json();
+          cache.set(cacheKey, altTokenData, 60 * 60 * 1000);
+          return altTokenData.accessToken;
+        }
+      }
+      
       return null;
     }
     
     const tokenData = await response.json();
+    console.log('获取到新的令牌数据:', Object.keys(tokenData).join(', '));
     
     // 缓存令牌，有效期1小时
     cache.set(cacheKey, tokenData, 60 * 60 * 1000);
@@ -155,6 +210,7 @@ async function directKimiRequest(originalRequest, accessToken) {
   try {
     // 解析原始请求体
     const requestData = await originalRequest.json();
+    console.log('请求数据:', JSON.stringify(requestData));
     
     // 检查是否为流式请求
     const isStreamRequest = requestData.stream === true;
@@ -166,7 +222,8 @@ async function directKimiRequest(originalRequest, accessToken) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
         'Referer': 'https://kimi.moonshot.cn/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Origin': 'https://kimi.moonshot.cn'
       },
       body: JSON.stringify({
         model: requestData.model || 'moonshot-v1-8k',
@@ -177,8 +234,12 @@ async function directKimiRequest(originalRequest, accessToken) {
       })
     };
     
+    console.log('发送请求到 Kimi API:', accessToken.substring(0, 10) + '...');
+    
     // 发送请求到 Kimi API
     const kimiResponse = await fetch('https://kimi.moonshot.cn/api/chat/completions', kimiRequest);
+    
+    console.log('Kimi API 响应状态:', kimiResponse.status, kimiResponse.statusText);
     
     if (!kimiResponse.ok) {
       const errorText = await kimiResponse.text();
