@@ -11,25 +11,36 @@ export async function getAccessToken(refreshToken, env) {
   }
 
   console.log('请求新的访问令牌');
-  // 请求新token
-  const response = await fetch(
-    'https://kimi.moonshot.cn/api/auth/token/refresh',
-    {
-      method: 'POST', // 需要明确指定POST方法
-      headers: {
-        Authorization: `Bearer ${refreshToken}`,
-        Referer: 'https://kimi.moonshot.cn/',
-        'Content-Type': 'application/json' // 必须添加内容类型
-      },
+  
+  try {
+    // 请求新token
+    const response = await fetch(
+      'https://kimi.moonshot.cn/api/auth/token/refresh',
+      {
+        method: 'POST', // 需要明确指定POST方法
+        headers: {
+          Authorization: `Bearer ${refreshToken}`,
+          Referer: 'https://kimi.moonshot.cn/',
+          'Content-Type': 'application/json', // 必须添加内容类型
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`刷新令牌失败: ${response.status}`, errorText);
+      throw new Error(`Failed to refresh token: ${response.status} ${errorText}`);
     }
-  )
 
-  if (!response.ok) throw new Error('Failed to refresh token');
-
-  const tokenData = await response.json();
-  
-  // 缓存令牌，有效期24小时
-  cache.set(cacheKey, tokenData, 24 * 60 * 60 * 1000);
-  
-  return tokenData;
+    const tokenData = await response.json();
+    
+    // 缓存令牌，有效期24小时
+    cache.set(cacheKey, tokenData, 24 * 60 * 60 * 1000);
+    
+    return tokenData;
+  } catch (error) {
+    console.error('刷新令牌时发生错误:', error);
+    throw error;
+  }
 }

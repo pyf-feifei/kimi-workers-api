@@ -8,10 +8,10 @@ ip = "localhost"
 
 # 正确配置路由
 routes = [
-  { pattern = "*/v1/chat/completions*" }
+  { pattern = "*kimi-workers-api.2338212189.workers.dev/v1/chat/completions*" }
 ]
 
 # 环境变量配置
 [vars]
 CORS_ORIGINS = "*"
-KIMI_BASE_URL = "https://kimi.moonshot.cn/api"
+KIMI_BASE_URL = "https://kimi.moonshot.cn"  # 移除末尾的/api，在代码中处理

@@ -96,16 +96,35 @@ export async function proxyToKimiAPI(request, accessToken, baseUrl) {
     console.error('解析请求体失败:', error);
   }
 
+  // 修正URL拼接，避免重复的/api
+  const apiUrl = baseUrl.endsWith('/api') 
+    ? `${baseUrl}/chat/completions` 
+    : `${baseUrl}/api/chat/completions`;
+  
+  console.log('请求Kimi API:', apiUrl);
+  
   // 发送请求到Kimi API
-  const response = await fetch(`${baseUrl}/api/chat/completions`, {
+  const response = await fetch(apiUrl, {
     method: request.method,
     headers: headers,
     body: request.body
   });
 
-  // 如果响应不成功，直接返回响应
+  // 如果响应不成功，记录详细错误
   if (!response.ok) {
-    return response;
+    const errorText = await response.text();
+    console.error(`Kimi API响应错误: ${response.status}`, errorText);
+    return new Response(
+      JSON.stringify({ 
+        error: "调用Kimi API失败", 
+        status: response.status,
+        detail: errorText
+      }),
+      { 
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
 
   // 如果是流式请求，设置正确的响应头
