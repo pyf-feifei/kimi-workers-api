@@ -112,13 +112,21 @@ export async function proxyToKimiAPI(request, accessToken, baseUrl) {
 
   // 如果响应不成功，记录详细错误
   if (!response.ok) {
+    console.error('Kimi API 响应异常:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      url: apiUrl
+    });
+    
     const errorText = await response.text();
-    console.error(`Kimi API响应错误: ${response.status}`, errorText);
+    console.error('响应内容:', errorText);
+    
     return new Response(
       JSON.stringify({ 
         error: "调用Kimi API失败", 
         status: response.status,
-        detail: errorText
+        detail: errorText 
       }),
       { 
         status: response.status,
