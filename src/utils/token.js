@@ -15,9 +15,11 @@ export async function getAccessToken(refreshToken, env) {
   const response = await fetch(
     'https://kimi.moonshot.cn/api/auth/token/refresh',
     {
+      method: 'POST', // 需要明确指定POST方法
       headers: {
         Authorization: `Bearer ${refreshToken}`,
         Referer: 'https://kimi.moonshot.cn/',
+        'Content-Type': 'application/json' // 必须添加内容类型
       },
     }
   )
